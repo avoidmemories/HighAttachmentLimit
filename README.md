@@ -55,14 +55,14 @@ pnpm --version
 
 ### Add to an existing Vencord source checkout
 
-Use this route when you already maintain a local Vencord checkout and have built it before.
+Use this route **only** when you have already cloned Vencord from GitHub and built that local checkout before. It does not create a Vencord folder. If you installed Vencord through its normal installer or the folder below does not exist, use the next section instead.
 
-1. Set `$VencordDir` to the full path of your **Vencord source folder**, then enter it. For example, if Vencord is in `Documents\Vencord`:
+1. Set `$VencordDir` to the full path of your existing **Vencord source folder**, then enter it:
 
    ```powershell
-   $VencordDir = "$HOME\Documents\Vencord"
+   $VencordDir = "C:\path\to\your\Vencord"
    Set-Location $VencordDir
-   if (-not (Test-Path ".\src\plugins")) { throw 'This is not a Vencord source folder. Set $VencordDir to the folder created by git clone Vendicated/Vencord.' }
+   if (-not (Test-Path ".\src\plugins")) { throw 'This is not a Vencord source folder. Use the Set up a Vencord source checkout section instead.' }
    ```
 
    Do not run the next commands from your user profile folder (for example, `C:\Users\you`), or the plugin will be cloned there instead of into Vencord.

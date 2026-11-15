@@ -4,16 +4,82 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-# PowerShell 5 renders an extremely slow progress bar for every web request.
-# Suppressing it is especially important for the 32 MB WebAssembly file.
-$ProgressPreference = "SilentlyContinue"
 $SourceBaseUrl = "https://raw.githubusercontent.com/avoidmemories/HighAttachmentLimit/main"
 $PluginName = "HighAttachmentLimit"
 $PluginFiles = @("index.ts", "clip.ts", "progress.ts", "native.ts")
 $FfmpegFiles = @("ffmpeg.js", "814.ffmpeg.js", "ffmpeg-core.js", "ffmpeg-core.wasm")
 
+function Write-Stage([int]$Current, [int]$Total, [string]$Status) {
+    $percent = [math]::Floor(($Current - 1) / $Total * 100)
+    Write-Progress -Id 1 -Activity "HighAttachmentLimit installer" -Status "$Status ($Current/$Total)" -PercentComplete $percent
+    Write-Host "[$Current/$Total] $Status" -ForegroundColor Cyan
+}
+
+function Format-Size([long]$Bytes) {
+    if ($Bytes -ge 1MB) { return "{0:N1} MB" -f ($Bytes / 1MB) }
+    if ($Bytes -ge 1KB) { return "{0:N1} KB" -f ($Bytes / 1KB) }
+    return "$Bytes bytes"
+}
+
+function Download-File([string]$Uri, [string]$Destination, [string]$Name, [int]$Current, [int]$Total) {
+    $client = [System.Net.Http.HttpClient]::new()
+    $client.Timeout = [TimeSpan]::FromMinutes(5)
+    $response = $null
+    $input = $null
+    $output = $null
+    try {
+        $response = $client.GetAsync($Uri, [System.Net.Http.HttpCompletionOption]::ResponseHeadersRead).GetAwaiter().GetResult()
+        $response.EnsureSuccessStatusCode() | Out-Null
+        $length = $response.Content.Headers.ContentLength
+        $input = $response.Content.ReadAsStreamAsync().GetAwaiter().GetResult()
+        $output = [System.IO.File]::Open($Destination, [System.IO.FileMode]::Create, [System.IO.FileAccess]::Write)
+        $buffer = New-Object byte[] 131072
+        [long]$received = 0
+        while (($read = $input.Read($buffer, 0, $buffer.Length)) -gt 0) {
+            $output.Write($buffer, 0, $read)
+            $received += $read
+            if ($length -and $length -gt 0) {
+                $filePercent = [math]::Min(100, [math]::Floor($received / $length * 100))
+                $overall = [math]::Floor((($Current - 1) + ($filePercent / 100)) / $Total * 100)
+                Write-Progress -Id 1 -Activity "HighAttachmentLimit installer" -Status "Downloading $Name — $(Format-Size $received) / $(Format-Size $length)" -PercentComplete $overall
+                Write-Progress -Id 2 -ParentId 1 -Activity "Current download" -Status "$Name ($filePercent%)" -PercentComplete $filePercent
+            }
+        }
+        if ($received -eq 0) { throw "Downloaded file is empty: $Name" }
+    } finally {
+        if ($output) { $output.Dispose() }
+        if ($input) { $input.Dispose() }
+        if ($response) { $response.Dispose() }
+        $client.Dispose()
+        Write-Progress -Id 2 -Activity "Current download" -Completed
+    }
+}
+
 function Test-VencordSource([string]$Path) {
     return (Test-Path (Join-Path $Path "src\plugins")) -and (Test-Path (Join-Path $Path "package.json"))
+}
+
+function Set-LocalFfmpegPath([string]$Path) {
+    $settingsPath = Join-Path $env:APPDATA "Vencord\settings\settings.json"
+    if (-not (Test-Path $settingsPath)) {
+        Write-Warning "Vencord settings were not found, so the FFmpeg local path could not be updated automatically."
+        return
+    }
+
+    # Do not parse the whole file: third-party entries can make ConvertFrom-Json fail.
+    $settingsText = [System.IO.File]::ReadAllText($settingsPath)
+    $escapedPath = $Path.Replace("\", "\\")
+    $existingPathPattern = '(?s)("HighAttachmentLimit"\s*:\s*\{[^}]*?"ffmpegLocalPath"\s*:\s*")[^"]*(")'
+    if ($settingsText -match $existingPathPattern) {
+        $updatedSettings = $settingsText -replace $existingPathPattern, ('${1}' + $escapedPath + '${2}')
+    } elseif ($settingsText -match '(?s)"HighAttachmentLimit"\s*:\s*\{([^}]*)\}') {
+        $updatedSettings = $settingsText -replace '(?s)("HighAttachmentLimit"\s*:\s*\{)([^}]*)(\})', ('${1}${2},' + "`n            " + '"ffmpegLocalPath": "' + $escapedPath + '"${3}')
+    } elseif ($settingsText -match '"plugins"\s*:\s*\{') {
+        $updatedSettings = $settingsText -replace '("plugins"\s*:\s*\{)', ('${1}' + "`n        " + '"HighAttachmentLimit": { "ffmpegLocalPath": "' + $escapedPath + '" },')
+    } else {
+        throw "Could not locate the plugins section in Vencord settings."
+    }
+    [System.IO.File]::WriteAllText($settingsPath, $updatedSettings, [System.Text.UTF8Encoding]::new($false))
 }
 
 if (-not $VencordDir) {
@@ -31,31 +97,34 @@ if (-not $VencordDir -or -not (Test-VencordSource $VencordDir)) {
 
 if (-not (Test-VencordSource $VencordDir)) { throw "The selected folder is not a Vencord source checkout: $VencordDir" }
 
+$totalSteps = if ($IncludeLocalFfmpeg) { 10 } else { 7 }
 $PluginDir = Join-Path $VencordDir "src\userplugins\$PluginName"
+$FfmpegDir = Join-Path $PluginDir "ffmpeg"
 New-Item -ItemType Directory -Force $PluginDir | Out-Null
+Write-Host "`nInstalling HighAttachmentLimit into: $PluginDir`n" -ForegroundColor Green
 
-# A Vencord user plugin needs only its TypeScript files. Keep repository metadata and documentation out.
-# Do not remove ffmpeg here: a normal plugin update must preserve a previously
-# installed local runtime.
+# A Vencord user plugin needs only its TypeScript files.
 $extras = @(".git", ".gitignore", "README.md", "LICENSE.md", "install.ps1")
 foreach ($name in $extras) {
     $extraPath = Join-Path $PluginDir $name
     if (Test-Path $extraPath) { Remove-Item -LiteralPath $extraPath -Recurse -Force }
 }
 
+$step = 0
 foreach ($name in $PluginFiles) {
-    Invoke-WebRequest -UseBasicParsing -Uri "$SourceBaseUrl/$name" -OutFile (Join-Path $PluginDir $name)
+    $step++
+    Write-Stage $step $totalSteps "Downloading plugin file: $name"
+    Download-File "$SourceBaseUrl/$name" (Join-Path $PluginDir $name) $name $step $totalSteps
 }
 
 if ($IncludeLocalFfmpeg) {
-    $FfmpegDir = Join-Path $PluginDir "ffmpeg"
-    # A unique staging name also lets a retry proceed if Windows is still releasing
-    # a failed download from an earlier installer run.
+    # Download into a staging folder so a partial runtime can never be used.
     $FfmpegDownloadDir = "$FfmpegDir.download-$PID"
     New-Item -ItemType Directory -Force $FfmpegDownloadDir | Out-Null
     foreach ($name in $FfmpegFiles) {
-        $destination = Join-Path $FfmpegDownloadDir $name
-        Invoke-WebRequest -UseBasicParsing -Uri "$SourceBaseUrl/ffmpeg/$name" -OutFile $destination -TimeoutSec 180
+        $step++
+        Write-Stage $step $totalSteps "Downloading local FFmpeg: $name"
+        Download-File "$SourceBaseUrl/ffmpeg/$name" (Join-Path $FfmpegDownloadDir $name) $name $step $totalSteps
     }
     foreach ($name in $FfmpegFiles) {
         $file = Get-Item -LiteralPath (Join-Path $FfmpegDownloadDir $name) -ErrorAction SilentlyContinue
@@ -63,32 +132,28 @@ if ($IncludeLocalFfmpeg) {
     }
     if (Test-Path $FfmpegDir) { Remove-Item -LiteralPath $FfmpegDir -Recurse -Force }
     Move-Item -LiteralPath $FfmpegDownloadDir -Destination $FfmpegDir
-
-    $settingsPath = Join-Path $env:APPDATA "Vencord\settings\settings.json"
-    if (Test-Path $settingsPath) {
-        # Some settings files contain third-party entries that PowerShell cannot parse as JSON.
-        # Update only this plugin's setting and leave every unrelated entry intact.
-        $settingsText = [System.IO.File]::ReadAllText($settingsPath)
-        $escapedFfmpegDir = $FfmpegDir.Replace("\", "\\")
-        $existingPathPattern = '(?s)("HighAttachmentLimit"\s*:\s*\{[^}]*?"ffmpegLocalPath"\s*:\s*")[^"]*(")'
-        if ($settingsText -match $existingPathPattern) {
-            $updatedSettings = $settingsText -replace $existingPathPattern, ('${1}' + $escapedFfmpegDir + '${2}')
-        } elseif ($settingsText -match '(?s)"HighAttachmentLimit"\s*:\s*\{([^}]*)\}') {
-            $updatedSettings = $settingsText -replace '(?s)("HighAttachmentLimit"\s*:\s*\{)([^}]*)(\})', ('${1}${2},' + "`n            " + '"ffmpegLocalPath": "' + $escapedFfmpegDir + '"${3}')
-        } elseif ($settingsText -match '"plugins"\s*:\s*\{') {
-            $updatedSettings = $settingsText -replace '("plugins"\s*:\s*\{)', ('${1}' + "`n        " + '"HighAttachmentLimit": { "ffmpegLocalPath": "' + $escapedFfmpegDir + '" },')
-        } else {
-            throw "Could not locate the plugins section in Vencord settings."
-        }
-        [System.IO.File]::WriteAllText($settingsPath, $updatedSettings, [System.Text.UTF8Encoding]::new($false))
-    }
-    Write-Host "Local FFmpeg installed and configured: $FfmpegDir"
+    Set-LocalFfmpegPath $FfmpegDir
+    Write-Host "Local FFmpeg is ready: $FfmpegDir" -ForegroundColor Green
+} else {
+    # The normal installer is deliberately the remote-only mode.
+    if (Test-Path $FfmpegDir) { Remove-Item -LiteralPath $FfmpegDir -Recurse -Force }
+    Set-LocalFfmpegPath ""
+    $step++
+    Write-Stage $step $totalSteps "Remote FFmpeg mode selected (local path cleared)"
+    Write-Host "Local FFmpeg path was cleared. FFmpeg will be loaded from GitHub when needed." -ForegroundColor Yellow
 }
 
 Push-Location $VencordDir
 try {
+    $step++
+    Write-Stage $step $totalSteps "Building Vencord"
     pnpm build
+    $step++
+    Write-Stage $step $totalSteps "Applying the Vencord build to Discord"
     pnpm inject
 } finally {
     Pop-Location
+    Write-Progress -Id 1 -Activity "HighAttachmentLimit installer" -Completed
 }
+
+Write-Host "`nDone. Fully close Discord (including its tray icon), then start it again." -ForegroundColor Green

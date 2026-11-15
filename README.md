@@ -14,25 +14,6 @@ A private [Vencord](https://github.com/Vendicated/Vencord) user plugin that prep
 
 The prepared upload is marked with the metadata Discord expects for a Clip. The plugin does not change Discord's server-side limits, and files over 100 MiB are not converted.
 
-## FFmpeg assets
-
-The `ffmpeg/` directory is committed to this repository so the plugin loads its own FFmpeg WebAssembly files from:
-
-```
-https://raw.githubusercontent.com/avoidmemories/HighAttachmentLimit/main/ffmpeg/
-```
-
-The default can be changed in the plugin settings (`FFmpeg base URL`) if you maintain a mirror. Keep all four required runtime files together: `ffmpeg.js`, `814.ffmpeg.js`, `ffmpeg-core.js`, and `ffmpeg-core.wasm`.
-
-### Loading FFmpeg from disk
-
-HighAttachmentLimit uses a **local first, remote fallback** loading order:
-
-1. If **FFmpeg local path** is set, the plugin attempts to read the four runtime files from that folder.
-2. A file that is not present or cannot be read is downloaded from **FFmpeg base URL** instead.
-
-Vencord compiles user plugins into its build, so it does not expose the source plugin folder automatically at runtime. Set the local path once as shown in the installation steps; after that, FFmpeg is read from disk before the GitHub fallback is used.
-
 ## Installation
 
 HighAttachmentLimit is a Vencord **user plugin**. User plugins are TypeScript source files, so they only work with a Vencord build from source; they cannot be dropped into a normal prebuilt Vencord installation.
@@ -53,34 +34,17 @@ node --version
 pnpm --version
 ```
 
-### Add to an existing Vencord source checkout
+### One-command installation or update
 
-Use this route **only** when you have already cloned Vencord from GitHub and built that local checkout before. It does not create a Vencord folder. If you installed Vencord through its normal installer or the folder below does not exist, use the next section instead.
+For an existing Vencord source checkout, paste this into PowerShell:
 
-1. Paste the full path of your existing **Vencord source folder** when PowerShell asks for it, then enter it:
+```powershell
+irm https://raw.githubusercontent.com/avoidmemories/HighAttachmentLimit/main/install.ps1 | iex
+```
 
-   ```powershell
-   $VencordDir = Read-Host "Paste the full path to your Vencord source folder"
-   Set-Location $VencordDir
-   if (-not (Test-Path ".\src\plugins")) { throw 'This is not a Vencord source folder. Use the Set up a Vencord source checkout section instead.' }
-   ```
+The installer checks the current folder, `C:\Users\<you>\Vencord`, and `Documents\Vencord`. If it cannot find Vencord, it opens a folder picker; select the folder that contains `src` and `package.json`. It then clones or updates the plugin in the correct `src\userplugins\HighAttachmentLimit` folder, runs `pnpm build`, and opens the Vencord installer (`pnpm inject`).
 
-   Do not run the next commands from your user profile folder (for example, `C:\Users\you`), or the plugin will be cloned there instead of into Vencord.
-2. Create the user-plugin folder if necessary, then clone the plugin:
-
-   ```powershell
-   New-Item -ItemType Directory -Force .\src\userplugins
-   git clone https://github.com/avoidmemories/HighAttachmentLimit.git .\src\userplugins\HighAttachmentLimit
-   ```
-
-3. Build Vencord and install/update it in Discord:
-
-   ```powershell
-   pnpm build
-   pnpm inject
-   ```
-
-4. Fully close Discord (including the system-tray process), then open it again. Enable **HighAttachmentLimit** in **Settings → Plugins**.
+After the installer finishes, fully close Discord (including its system-tray process), start it again, and enable **HighAttachmentLimit** in **Settings → Plugins**.
 
 ### Set up a Vencord source checkout
 
@@ -98,24 +62,22 @@ Use this route to create a local Vencord checkout for HighAttachmentLimit. You d
    pnpm install --frozen-lockfile
    ```
 
-2. Add HighAttachmentLimit as a user plugin:
+2. Run the one-command installer from the previous section:
 
    ```powershell
-   New-Item -ItemType Directory -Force .\src\userplugins
-   git clone https://github.com/avoidmemories/HighAttachmentLimit.git .\src\userplugins\HighAttachmentLimit
+   irm https://raw.githubusercontent.com/avoidmemories/HighAttachmentLimit/main/install.ps1 | iex
    ```
 
-3. Build Vencord and patch your installed Discord client:
+   If Vencord is not found automatically, select the `Vencord` folder you just cloned in the folder picker. Select the Discord installation you use when the Vencord installer opens.
+3. Fully close Discord (including the system-tray process), then open it again. Enable **HighAttachmentLimit** in **Settings → Plugins**.
 
-   ```powershell
-   pnpm build
-   pnpm inject
-   ```
+## Configure local FFmpeg (optional)
 
-   Select the Discord installation you use when the Vencord installer opens.
-4. Fully close Discord (including the system-tray process), then open it again. Enable **HighAttachmentLimit** in **Settings → Plugins**.
+### FFmpeg assets
 
-### Configure local FFmpeg (optional)
+The `ffmpeg/` directory is committed to this repository and contains the FFmpeg WebAssembly runtime. Keep all four required runtime files together: `ffmpeg.js`, `814.ffmpeg.js`, `ffmpeg-core.js`, and `ffmpeg-core.wasm`.
+
+HighAttachmentLimit uses a **local first, remote fallback** loading order: when **FFmpeg local path** is set, the plugin reads the runtime files from that folder first; any missing or unreadable file is downloaded from **FFmpeg base URL** instead.
 
 To use the bundled files from disk instead of downloading them from GitHub, set **FFmpeg local path** to:
 
@@ -125,17 +87,7 @@ To use the bundled files from disk instead of downloading them from GitHub, set 
 
 ### Updating
 
-Paste the full path to your Vencord source folder when prompted, then run:
-
-```powershell
-$VencordDir = Read-Host "Paste the full path to your Vencord source folder"
-Set-Location $VencordDir
-git -C .\src\userplugins\HighAttachmentLimit pull
-pnpm build
-pnpm inject
-```
-
-Then restart Discord. For Vencord-specific troubleshooting or platforms other than Windows, see the official [Vencord source-build guide](https://docs.vencord.dev/installing/) and [custom-plugin instructions](https://docs.vencord.dev/installing/custom-plugins/).
+Run the same one-command installer again, then restart Discord. For Vencord-specific troubleshooting or platforms other than Windows, see the official [Vencord source-build guide](https://docs.vencord.dev/installing/) and [custom-plugin instructions](https://docs.vencord.dev/installing/custom-plugins/).
 
 ## Development
 

@@ -40,8 +40,9 @@ function Download-File([string]$Uri, [string]$Destination, [string]$Name, [int]$
             if ($length -and $length -gt 0) {
                 $filePercent = [math]::Min(100, [math]::Floor($received / $length * 100))
                 $overall = [math]::Floor((($Current - 1) + ($filePercent / 100)) / $Total * 100)
-                Write-Progress -Id 1 -Activity "HighAttachmentLimit installer" -Status "Downloading $Name — $(Format-Size $received) / $(Format-Size $length)" -PercentComplete $overall
-                Write-Progress -Id 2 -ParentId 1 -Activity "Current download" -Status "$Name ($filePercent%)" -PercentComplete $filePercent
+                Write-Progress -Id 1 -Activity "HighAttachmentLimit installer" -Status "Downloading $Name - $(Format-Size $received) / $(Format-Size $length)" -PercentComplete $overall
+                $downloadStatus = "{0} ({1} percent)" -f $Name, $filePercent
+                Write-Progress -Id 2 -ParentId 1 -Activity "Current download" -Status $downloadStatus -PercentComplete $filePercent
             }
         }
         if ($received -eq 0) { throw "Downloaded file is empty: $Name" }

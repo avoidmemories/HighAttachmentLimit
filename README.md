@@ -42,6 +42,8 @@ Fully close Discord, including its system-tray process. Then, for an existing Ve
 irm https://raw.githubusercontent.com/avoidmemories/HighAttachmentLimit/main/install.ps1 | iex
 ```
 
+The installer supports both Windows PowerShell 5.1 and PowerShell 7+.
+
 The installer checks the current folder, `C:\Users\<you>\Vencord`, and `Documents\Vencord`. If it cannot find Vencord, it opens a folder picker; select the folder that contains `src` and `package.json`. It downloads only the four required TypeScript files into `src\userplugins\HighAttachmentLimit`, runs `pnpm build`, and opens the Vencord installer (`pnpm inject`).
 
 After the installer finishes, fully close Discord (including its system-tray process), start it again, and enable **HighAttachmentLimit** in **Settings → Plugins**.

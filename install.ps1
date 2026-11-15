@@ -49,16 +49,23 @@ if ($IncludeLocalFfmpeg) {
     foreach ($name in $FfmpegFiles) {
         Invoke-WebRequest -UseBasicParsing -Uri "$SourceBaseUrl/ffmpeg/$name" -OutFile (Join-Path $FfmpegDir $name)
     }
+    foreach ($name in $FfmpegFiles) {
+        if (-not (Test-Path (Join-Path $FfmpegDir $name))) { throw "FFmpeg download failed: $name" }
+    }
 
     $settingsPath = Join-Path $env:APPDATA "Vencord\settings\settings.json"
     if (Test-Path $settingsPath) {
-        $settings = Get-Content -Raw $settingsPath | ConvertFrom-Json
-        if (-not $settings.plugins) { $settings | Add-Member -NotePropertyName plugins -NotePropertyValue ([pscustomobject]@{}) }
-        if (-not $settings.plugins.HighAttachmentLimit) {
-            $settings.plugins | Add-Member -NotePropertyName HighAttachmentLimit -NotePropertyValue ([pscustomobject]@{})
+        # Some settings files contain third-party entries that PowerShell cannot parse as JSON.
+        # Update only this plugin's existing setting and leave the rest of the file byte-for-byte intact.
+        $settingsText = [System.IO.File]::ReadAllText($settingsPath)
+        $escapedFfmpegDir = $FfmpegDir.Replace("\", "\\")
+        $pattern = '(?s)("HighAttachmentLimit"\s*:\s*\{[^}]*?"ffmpegLocalPath"\s*:\s*")[^"]*(")'
+        $updatedSettings = $settingsText -replace $pattern, ('${1}' + $escapedFfmpegDir + '${2}')
+        if ($updatedSettings -eq $settingsText) {
+            Write-Warning "FFmpeg files were installed, but the Vencord setting could not be updated automatically. Set FFmpeg local path to: $FfmpegDir"
+        } else {
+            [System.IO.File]::WriteAllText($settingsPath, $updatedSettings, [System.Text.UTF8Encoding]::new($false))
         }
-        $settings.plugins.HighAttachmentLimit | Add-Member -Force -NotePropertyName ffmpegLocalPath -NotePropertyValue $FfmpegDir
-        $settings | ConvertTo-Json -Depth 100 | Set-Content -Encoding UTF8 $settingsPath
     }
 }
 

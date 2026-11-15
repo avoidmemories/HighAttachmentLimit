@@ -4,9 +4,6 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-# Windows PowerShell 5.1 does not load this assembly automatically, unlike
-# PowerShell 7. The installer supports both shells.
-Add-Type -AssemblyName System.Net.Http
 $SourceBaseUrl = "https://raw.githubusercontent.com/avoidmemories/HighAttachmentLimit/main"
 $PluginName = "HighAttachmentLimit"
 $PluginFiles = @("index.ts", "clip.ts", "progress.ts", "native.ts")
@@ -25,16 +22,15 @@ function Format-Size([long]$Bytes) {
 }
 
 function Download-File([string]$Uri, [string]$Destination, [string]$Name, [int]$Current, [int]$Total) {
-    $client = [System.Net.Http.HttpClient]::new()
-    $client.Timeout = [TimeSpan]::FromMinutes(5)
-    $response = $null
+    # WebClient is available in both old Windows PowerShell and PowerShell 7.
+    # HttpClient is not reliably available in some Windows PowerShell installs.
+    $client = New-Object System.Net.WebClient
     $input = $null
     $output = $null
     try {
-        $response = $client.GetAsync($Uri, [System.Net.Http.HttpCompletionOption]::ResponseHeadersRead).GetAwaiter().GetResult()
-        $response.EnsureSuccessStatusCode() | Out-Null
-        $length = $response.Content.Headers.ContentLength
-        $input = $response.Content.ReadAsStreamAsync().GetAwaiter().GetResult()
+        $input = $client.OpenRead($Uri)
+        [long]$length = 0
+        if ($client.ResponseHeaders["Content-Length"]) { $length = [long]$client.ResponseHeaders["Content-Length"] }
         $output = [System.IO.File]::Open($Destination, [System.IO.FileMode]::Create, [System.IO.FileAccess]::Write)
         $buffer = New-Object byte[] 131072
         [long]$received = 0
@@ -52,7 +48,6 @@ function Download-File([string]$Uri, [string]$Destination, [string]$Name, [int]$
     } finally {
         if ($output) { $output.Dispose() }
         if ($input) { $input.Dispose() }
-        if ($response) { $response.Dispose() }
         $client.Dispose()
         Write-Progress -Id 2 -Activity "Current download" -Completed
     }

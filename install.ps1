@@ -4,6 +4,9 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+# Windows PowerShell 5.1 does not load this assembly automatically, unlike
+# PowerShell 7. The installer supports both shells.
+Add-Type -AssemblyName System.Net.Http
 $SourceBaseUrl = "https://raw.githubusercontent.com/avoidmemories/HighAttachmentLimit/main"
 $PluginName = "HighAttachmentLimit"
 $PluginFiles = @("index.ts", "clip.ts", "progress.ts", "native.ts")

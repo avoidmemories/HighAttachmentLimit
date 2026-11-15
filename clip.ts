@@ -10,10 +10,7 @@ const MOV_MIME_TYPES = new Set([
 	"video/flv", "video/ogg", "video/wmv", "video/mov",
 	"audio/wav", "audio/aiff", "audio/x-ms-wma", "audio/mpeg",
 ]);
-const ARCHIVE_MIME_SUBTYPES = new Set([
-	"x-7z-compressed", "x-bzip", "x-bzip2", "x-rar-compressed", "x-tar",
-	"gzip", "x-gzip", "zip", "x-zip-compressed",
-]);
+const DIRECT_ARCHIVE_EXTENSIONS = [".tar.gz", ".zip", ".7z", ".rar", ".tar", ".gz"];
 
 // Box that Discord's API checks for to accept a file as a clip.
 const CLIP_TAG = Uint8Array.from(atob("AAAuLnV1aWShyFKZM0ZNuIjwg/V6daXv"), (c) => c.charCodeAt(0));
@@ -316,6 +313,15 @@ function getStem(name: string): string {
 	return dot > 0 ? name.slice(0, dot) : name;
 }
 
+/**
+ * Browser MIME values for archives are inconsistent (and are often empty), so
+ * preserve known archive formats by their filename instead.
+ */
+function isDirectArchiveFile(file: File): boolean {
+	const name = file.name.toLowerCase();
+	return DIRECT_ARCHIVE_EXTENSIONS.some(extension => name.endsWith(extension));
+}
+
 function buildClipMetadata(
 	file: File,
 	name: string,
@@ -433,8 +439,7 @@ export async function prepareClip(
 			await runFfmpeg(ffmpeg, undefined, ZIP_HEADER_ARGS, "output.mp4", options),
 			CLIP_TAG
 		);
-		const isArchive = file.type.startsWith("application/") &&
-			ARCHIVE_MIME_SUBTYPES.has(file.type.slice("application/".length));
+		const isArchive = isDirectArchiveFile(file);
 
 		if (isArchive) {
 			return {

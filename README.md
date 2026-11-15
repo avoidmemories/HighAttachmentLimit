@@ -8,7 +8,7 @@ A private [Vencord](https://github.com/Vendicated/Vencord) user plugin that prep
 
 - **Video clips:** remuxes supported video files to an `isom`-branded MP4 without re-encoding when possible.
 - **Audio clips:** places supported audio in an MP4 container with a black video track.
-- **Zip clips:** wraps other files in an uncompressed ZIP archive (or preserves an existing archive) and appends it to a short MP4 clip.
+- **Archive clips:** wraps other files in an uncompressed ZIP archive, while existing `.zip`, `.7z`, `.rar`, `.tar`, and `.gz` archives retain their original extension before `.mp4`.
 - **Progress and cancellation:** shows conversion progress and lets you stop a pending conversion.
 - **Upload menu:** adds a **Send Clip** item to the channel attachment menu.
 

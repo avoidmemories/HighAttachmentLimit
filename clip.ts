@@ -386,7 +386,7 @@ export async function prepareClip(
 	options: PrepareOptions
 ): Promise<PreparedFile> {
 	if (SKIPPED_MIME_TYPES.has(file.type)) return { file };
-	if (file.size < FREE_FILE_LIMIT || file.size > CLIP_FILE_LIMIT) return { file };
+	if (file.size <= FREE_FILE_LIMIT || file.size > CLIP_FILE_LIMIT) return { file };
 	options.signal.throwIfAborted();
 
 	const stem = getStem(file.name);

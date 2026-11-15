@@ -95,7 +95,8 @@ function findUploadModule(): UploadModule | undefined {
 }
 
 function isLargeFile(file: File) {
-	return file.size >= FREE_FILE_LIMIT;
+	// Discord accepts a file exactly at the limit; only values above it need a clip.
+	return file.size > FREE_FILE_LIMIT;
 }
 
 function formatMegabytes(bytes: number) {

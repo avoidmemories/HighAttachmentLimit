@@ -56,16 +56,20 @@ if ($IncludeLocalFfmpeg) {
     $settingsPath = Join-Path $env:APPDATA "Vencord\settings\settings.json"
     if (Test-Path $settingsPath) {
         # Some settings files contain third-party entries that PowerShell cannot parse as JSON.
-        # Update only this plugin's existing setting and leave the rest of the file byte-for-byte intact.
+        # Update only this plugin's setting and leave every unrelated entry intact.
         $settingsText = [System.IO.File]::ReadAllText($settingsPath)
         $escapedFfmpegDir = $FfmpegDir.Replace("\", "\\")
-        $pattern = '(?s)("HighAttachmentLimit"\s*:\s*\{[^}]*?"ffmpegLocalPath"\s*:\s*")[^"]*(")'
-        $updatedSettings = $settingsText -replace $pattern, ('${1}' + $escapedFfmpegDir + '${2}')
-        if ($updatedSettings -eq $settingsText) {
-            Write-Warning "FFmpeg files were installed, but the Vencord setting could not be updated automatically. Set FFmpeg local path to: $FfmpegDir"
+        $existingPathPattern = '(?s)("HighAttachmentLimit"\s*:\s*\{[^}]*?"ffmpegLocalPath"\s*:\s*")[^"]*(")'
+        if ($settingsText -match $existingPathPattern) {
+            $updatedSettings = $settingsText -replace $existingPathPattern, ('${1}' + $escapedFfmpegDir + '${2}')
+        } elseif ($settingsText -match '(?s)"HighAttachmentLimit"\s*:\s*\{([^}]*)\}') {
+            $updatedSettings = $settingsText -replace '(?s)("HighAttachmentLimit"\s*:\s*\{)([^}]*)(\})', ('${1}${2},' + "`n            " + '"ffmpegLocalPath": "' + $escapedFfmpegDir + '"${3}')
+        } elseif ($settingsText -match '"plugins"\s*:\s*\{') {
+            $updatedSettings = $settingsText -replace '("plugins"\s*:\s*\{)', ('${1}' + "`n        " + '"HighAttachmentLimit": { "ffmpegLocalPath": "' + $escapedFfmpegDir + '" },')
         } else {
-            [System.IO.File]::WriteAllText($settingsPath, $updatedSettings, [System.Text.UTF8Encoding]::new($false))
+            throw "Could not locate the plugins section in Vencord settings."
         }
+        [System.IO.File]::WriteAllText($settingsPath, $updatedSettings, [System.Text.UTF8Encoding]::new($false))
     }
 }
 

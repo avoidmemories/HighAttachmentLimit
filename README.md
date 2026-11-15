@@ -57,10 +57,10 @@ pnpm --version
 
 Use this route **only** when you have already cloned Vencord from GitHub and built that local checkout before. It does not create a Vencord folder. If you installed Vencord through its normal installer or the folder below does not exist, use the next section instead.
 
-1. Set `$VencordDir` to the full path of your existing **Vencord source folder**, then enter it:
+1. Paste the full path of your existing **Vencord source folder** when PowerShell asks for it, then enter it:
 
    ```powershell
-   $VencordDir = "C:\path\to\your\Vencord"
+   $VencordDir = Read-Host "Paste the full path to your Vencord source folder"
    Set-Location $VencordDir
    if (-not (Test-Path ".\src\plugins")) { throw 'This is not a Vencord source folder. Use the Set up a Vencord source checkout section instead.' }
    ```
@@ -89,7 +89,9 @@ Use this route to create a local Vencord checkout for HighAttachmentLimit. You d
 1. Clone Vencord and install its dependencies:
 
    ```powershell
-   $VencordDir = "$HOME\Documents\Vencord"
+   $VencordParent = Read-Host "Paste the folder where Vencord should be created"
+   if (-not (Test-Path $VencordParent)) { throw 'The selected parent folder does not exist.' }
+   $VencordDir = Join-Path $VencordParent "Vencord"
    Set-Location (Split-Path $VencordDir -Parent)
    git clone https://github.com/Vendicated/Vencord.git
    Set-Location $VencordDir
@@ -123,10 +125,10 @@ To use the bundled files from disk instead of downloading them from GitHub, set 
 
 ### Updating
 
-First set `$VencordDir` to your Vencord source folder and enter it, then run:
+Paste the full path to your Vencord source folder when prompted, then run:
 
 ```powershell
-$VencordDir = "$HOME\Documents\Vencord"
+$VencordDir = Read-Host "Paste the full path to your Vencord source folder"
 Set-Location $VencordDir
 git -C .\src\userplugins\HighAttachmentLimit pull
 pnpm build

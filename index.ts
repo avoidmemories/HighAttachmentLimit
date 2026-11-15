@@ -47,11 +47,6 @@ const settings = definePluginSettings({
 	},
 });
 
-// Defaults are only used for new settings. Migrate the old upstream URL without overwriting custom mirrors.
-if (settings.store.ffmpegBaseUrl === LEGACY_FFMPEG_BASE_URL) {
-	settings.store.ffmpegBaseUrl = DEFAULT_FFMPEG_BASE_URL;
-}
-
 const Native = VencordNative.pluginHelpers.HighAttachmentLimit as PluginNative<typeof import("./native")>;
 
 interface UploadItem {
@@ -254,6 +249,11 @@ export default definePlugin({
 	},
 
 	start() {
+		// Defaults are only used for new settings. Migrate the old upstream URL without overwriting custom mirrors.
+		if (settings.store.ffmpegBaseUrl === LEGACY_FFMPEG_BASE_URL) {
+			settings.store.ffmpegBaseUrl = DEFAULT_FFMPEG_BASE_URL;
+		}
+
 		addContextMenuPatch("channel-attach", attachMenuPatch);
 
 		const target = findUploadModule();

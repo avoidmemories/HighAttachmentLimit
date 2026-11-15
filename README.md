@@ -42,7 +42,7 @@ For an existing Vencord source checkout, paste this into PowerShell:
 irm https://raw.githubusercontent.com/avoidmemories/HighAttachmentLimit/main/install.ps1 | iex
 ```
 
-The installer checks the current folder, `C:\Users\<you>\Vencord`, and `Documents\Vencord`. If it cannot find Vencord, it opens a folder picker; select the folder that contains `src` and `package.json`. It then clones or updates the plugin in the correct `src\userplugins\HighAttachmentLimit` folder, runs `pnpm build`, and opens the Vencord installer (`pnpm inject`).
+The installer checks the current folder, `C:\Users\<you>\Vencord`, and `Documents\Vencord`. If it cannot find Vencord, it opens a folder picker; select the folder that contains `src` and `package.json`. It downloads only the four required TypeScript files into `src\userplugins\HighAttachmentLimit`, runs `pnpm build`, and opens the Vencord installer (`pnpm inject`).
 
 After the installer finishes, fully close Discord (including its system-tray process), start it again, and enable **HighAttachmentLimit** in **Settings → Plugins**.
 
@@ -84,6 +84,8 @@ To use the bundled files from disk instead of downloading them from GitHub, set 
 ```text
 <your Vencord folder>\src\userplugins\HighAttachmentLimit\ffmpeg
 ```
+
+The one-command installer intentionally does not copy this optional 32 MB folder. Download the repository archive and copy its `ffmpeg` folder to that location only if you want local FFmpeg loading.
 
 ### Updating
 

@@ -31,38 +31,98 @@ HighAttachmentLimit uses a **local first, remote fallback** loading order:
 1. If **FFmpeg local path** is set, the plugin attempts to read the four runtime files from that folder.
 2. A file that is not present or cannot be read is downloaded from **FFmpeg base URL** instead.
 
-When this repository is installed as described below, enter this path in the plugin settings:
+Vencord compiles user plugins into its build, so it does not expose the source plugin folder automatically at runtime. Set the local path once as shown in the installation steps; after that, FFmpeg is read from disk before the GitHub fallback is used.
+
+## Installation
+
+HighAttachmentLimit is a Vencord **user plugin**. User plugins are TypeScript source files, so they only work with a Vencord build from source; they cannot be dropped into a normal prebuilt Vencord installation.
+
+### Requirements
+
+Install the following before continuing:
+
+- [Node.js LTS](https://nodejs.org/)
+- [Git](https://git-scm.com/downloads)
+- [pnpm](https://pnpm.io/installation)
+
+Ensure all three are available in PowerShell:
+
+```powershell
+git --version
+node --version
+pnpm --version
+```
+
+### I already have a Vencord source build
+
+Use this route if your Vencord folder already contains `src\userplugins` or you have previously run `pnpm build` there.
+
+1. Open PowerShell in the root of your Vencord source folder.
+2. Create the user-plugin folder if necessary, then clone the plugin:
+
+   ```powershell
+   New-Item -ItemType Directory -Force .\src\userplugins
+   git clone https://github.com/avoidmemories/HighAttachmentLimit.git .\src\userplugins\HighAttachmentLimit
+   ```
+
+3. Build Vencord and install/update it in Discord:
+
+   ```powershell
+   pnpm build
+   pnpm inject
+   ```
+
+4. Fully close Discord (including the system-tray process), then open it again. Enable **HighAttachmentLimit** in **Settings → Plugins**.
+
+### I only have the regular Vencord installation
+
+Use this route if you installed Vencord with its normal installer and do not have a Vencord source folder. You do not need to uninstall the existing installation; `pnpm inject` will apply your own build to Discord.
+
+1. Clone Vencord and install its dependencies:
+
+   ```powershell
+   cd $HOME\Documents
+   git clone https://github.com/Vendicated/Vencord.git
+   cd Vencord
+   pnpm install --frozen-lockfile
+   ```
+
+2. Add HighAttachmentLimit as a user plugin:
+
+   ```powershell
+   New-Item -ItemType Directory -Force .\src\userplugins
+   git clone https://github.com/avoidmemories/HighAttachmentLimit.git .\src\userplugins\HighAttachmentLimit
+   ```
+
+3. Build Vencord and patch your installed Discord client:
+
+   ```powershell
+   pnpm build
+   pnpm inject
+   ```
+
+   Select the Discord installation you use when the Vencord installer opens.
+4. Fully close Discord (including the system-tray process), then open it again. Enable **HighAttachmentLimit** in **Settings → Plugins**.
+
+### Configure local FFmpeg (optional)
+
+To use the bundled files from disk instead of downloading them from GitHub, set **FFmpeg local path** to:
 
 ```text
 <your Vencord folder>\src\userplugins\HighAttachmentLimit\ffmpeg
 ```
 
-For example: `C:\Users\you\Documents\Vencord\src\userplugins\HighAttachmentLimit\ffmpeg`.
+### Updating
 
-Vencord compiles user plugins into its build, so it does not expose a BetterDiscord-style `Plugins.folder` path at runtime. The local-path setting is therefore required once; after setting it, FFmpeg is read from the `ffmpeg/` directory beside this plugin's source instead of downloaded from GitHub.
+From the Vencord source folder, run:
 
-## Installation
+```powershell
+git -C .\src\userplugins\HighAttachmentLimit pull
+pnpm build
+pnpm inject
+```
 
-HighAttachmentLimit is a Vencord **user plugin**, so it requires a Vencord build from source.
-
-1. Follow Vencord's official [build-from-source instructions](https://docs.vencord.dev/installing/).
-2. Clone this repository directly into your Vencord user-plugin directory:
-
-   ```powershell
-   git clone https://github.com/avoidmemories/HighAttachmentLimit.git .\src\userplugins\HighAttachmentLimit
-   ```
-
-   If `src\userplugins` does not exist, create it first.
-3. From the root of your Vencord checkout, build it:
-
-   ```powershell
-   pnpm build
-   ```
-
-4. Install or update the built Vencord client as described by Vencord, then restart Discord.
-5. Open **Settings → Plugins**, enable **HighAttachmentLimit**, and configure its clip options if needed.
-
-After pulling an update to this repository, run `pnpm build` again and restart Discord.
+Then restart Discord. For Vencord-specific troubleshooting or platforms other than Windows, see the official [Vencord source-build guide](https://docs.vencord.dev/installing/) and [custom-plugin instructions](https://docs.vencord.dev/installing/custom-plugins/).
 
 ## Development
 

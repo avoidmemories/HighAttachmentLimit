@@ -106,6 +106,7 @@ async function prepareUploadItems(items: UploadItem[], signal: AbortSignal, prog
 	const userId = UserStore.getCurrentUser().id;
 	const clipSettings = settings.store;
 	const largeCount = items.filter((item) => isLargeFile(item.file)).length;
+	const preparedItems: UploadItem[] = [];
 	let position = 0;
 
 	// ffmpeg runs as a single instance, so large files are converted one at a time.
@@ -139,10 +140,15 @@ async function prepareUploadItems(items: UploadItem[], signal: AbortSignal, prog
 		} catch (err) {
 			if (signal.aborted) throw err;
 			console.error("[HighAttachmentLimit] Failed to prepare", item.file.name, err);
-			showToast(`Could not prepare ${item.file.name} as a clip. Sending it unchanged.`);
+			if (isLargeFile(item.file)) {
+				// The unchanged file would only trigger Discord's normal size-limit error.
+				showToast(`Could not prepare ${item.file.name} as a clip. It was not sent.`);
+				continue;
+			}
 		}
+		preparedItems.push(item);
 	}
-	return items;
+	return preparedItems;
 }
 
 /** Returns the prepared items, or undefined when the user cancelled the conversion. */
@@ -155,7 +161,7 @@ async function prepareItemsWithProgress(items: UploadItem[]): Promise<UploadItem
 	const progress = hasLarge ? showClipProgress({ onCancel: cancelActiveUpload }) : undefined;
 	try {
 		const prepared = await prepareUploadItems(items, controller.signal, progress);
-		if (hasLarge) showToast("Clip ready. Discord is now uploading it.");
+		if (hasLarge && prepared.length) showToast("Clip ready. Discord is now uploading it.");
 		return prepared;
 	} catch (err) {
 		if (controller.signal.aborted) return undefined;
@@ -196,6 +202,7 @@ function sendClipFromPicker(channelId: string, draftType: unknown) {
 		try {
 			const items = await prepareItemsWithProgress(files.map((file) => ({ file })));
 			if (!items) return showCancelledToast();
+			if (!items.length) return;
 			dispatchUpload(channelId, items, draftType);
 		} catch (err) {
 			console.error("[HighAttachmentLimit] Send Clip failed", err);
@@ -272,6 +279,7 @@ export default definePlugin({
 
 			return prepareItemsWithProgress(args.files).then((items) => {
 				if (!items) return showCancelledToast();
+				if (!items.length) return;
 				dispatchUpload(args.channelId, items, args.draftType);
 			});
 		};

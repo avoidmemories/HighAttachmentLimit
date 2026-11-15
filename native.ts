@@ -1,5 +1,6 @@
 import { readFile, stat } from "fs/promises";
 import { basename, resolve } from "path";
+import { net } from "electron";
 
 const FFMPEG_FILES = new Set([
 	"814.ffmpeg.js",
@@ -37,7 +38,9 @@ export async function downloadFfmpegFile(_: unknown, url: string): Promise<Uint8
 	const controller = new AbortController();
 	const timeout = setTimeout(() => controller.abort(), REMOTE_FFMPEG_TIMEOUT_MS);
 	try {
-		const response = await fetch(url, { signal: controller.signal });
+		// Electron shares Discord's proxy and certificate configuration. Node's
+		// global fetch can fail here even when Discord itself reaches GitHub.
+		const response = await net.fetch(url, { signal: controller.signal });
 		if (!response.ok) return null;
 
 		const contentLength = Number(response.headers.get("content-length"));

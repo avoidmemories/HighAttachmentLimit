@@ -222,7 +222,7 @@ function attachMenuPatch(children: any[], props: any) {
 export default definePlugin({
 	name: "HighAttachmentLimit",
 	description: "Upload files up to 100 MB by sending them as Discord clips.",
-	authors: [{ name: "HighAttachmentLimit", id: 0n }],
+	authors: [{ name: "avoidmemories", id: 0n }],
 	settings,
 
 	patches: [

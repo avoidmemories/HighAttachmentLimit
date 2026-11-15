@@ -46,6 +46,14 @@ The installer checks the current folder, `C:\Users\<you>\Vencord`, and `Document
 
 After the installer finishes, fully close Discord (including its system-tray process), start it again, and enable **HighAttachmentLimit** in **Settings → Plugins**.
 
+### One-command installation with local FFmpeg
+
+Use this version to install the plugin with its FFmpeg WebAssembly files stored locally. It downloads an additional ~32 MB, configures the local FFmpeg path automatically, and avoids downloading FFmpeg from GitHub during clip preparation:
+
+```powershell
+irm https://raw.githubusercontent.com/avoidmemories/HighAttachmentLimit/main/install-with-ffmpeg.ps1 | iex
+```
+
 ### Set up a Vencord source checkout
 
 Use this route to create a local Vencord checkout for HighAttachmentLimit. You do not need to uninstall an existing Vencord installation; `pnpm inject` will apply your own build to Discord.
@@ -85,7 +93,7 @@ To use the bundled files from disk instead of downloading them from GitHub, set 
 <your Vencord folder>\src\userplugins\HighAttachmentLimit\ffmpeg
 ```
 
-The one-command installer intentionally does not copy this optional 32 MB folder. Download the repository archive and copy its `ffmpeg` folder to that location only if you want local FFmpeg loading.
+The regular one-command installer intentionally does not copy this optional 32 MB folder. Use **One-command installation with local FFmpeg** above to download and configure it automatically.
 
 ### Updating
 

@@ -83,7 +83,6 @@ const FFMPEG_FETCH_TIMEOUT_MS = 5 * 60_000;
 
 let ffmpegPromise: Promise<FFmpegInstance> | undefined;
 type LocalAssetReader = (filename: string) => Promise<Uint8Array | null>;
-type RemoteAssetReader = (url: string) => Promise<Uint8Array | null>;
 
 async function fetchAsset(url: string): Promise<ArrayBuffer> {
 	// Chromium's fetch has no useful default deadline. Without one, a stalled
@@ -109,22 +108,15 @@ async function loadAsset(
 	localPath: string,
 	filename: string,
 	type: string,
-	readLocalAsset?: LocalAssetReader,
-	downloadRemoteAsset?: RemoteAssetReader
+	readLocalAsset?: LocalAssetReader
 ): Promise<Blob> {
 	// Match YABDP4Nitro's behavior: use a local file first and download it only when unavailable.
 	if (localPath && readLocalAsset) {
 		const localFile = await readLocalAsset(filename);
 		if (localFile) return new Blob([localFile], { type });
 	}
-	const url = baseUrl + filename;
-	if (downloadRemoteAsset) {
-		const remoteFile = await downloadRemoteAsset(url);
-		if (remoteFile) return new Blob([remoteFile], { type });
-		throw new Error(`Failed to download ${url} in Vencord's main process`);
-	}
 
-	return new Blob([await fetchAsset(url)], { type });
+	return new Blob([await fetchAsset(baseUrl + filename)], { type });
 }
 
 async function toBlobUrl(
@@ -132,10 +124,9 @@ async function toBlobUrl(
 	localPath: string,
 	filename: string,
 	type: string,
-	readLocalAsset?: LocalAssetReader,
-	downloadRemoteAsset?: RemoteAssetReader
+	readLocalAsset?: LocalAssetReader
 ): Promise<string> {
-	return URL.createObjectURL(await loadAsset(baseUrl, localPath, filename, type, readLocalAsset, downloadRemoteAsset));
+	return URL.createObjectURL(await loadAsset(baseUrl, localPath, filename, type, readLocalAsset));
 }
 
 function injectScript(src: string): Promise<void> {
@@ -152,15 +143,14 @@ function injectScript(src: string): Promise<void> {
 export function loadFfmpeg(
 	baseUrl: string,
 	localPath: string,
-	readLocalAsset?: LocalAssetReader,
-	downloadRemoteAsset?: RemoteAssetReader
+	readLocalAsset?: LocalAssetReader
 ): Promise<FFmpegInstance> {
 	ffmpegPromise ??= (async () => {
 		const base = baseUrl.endsWith("/") ? baseUrl : baseUrl + "/";
 
-		const workerUrl = await toBlobUrl(base, localPath, FFMPEG_WORKER_FILE, "text/javascript", readLocalAsset, downloadRemoteAsset);
+		const workerUrl = await toBlobUrl(base, localPath, FFMPEG_WORKER_FILE, "text/javascript", readLocalAsset);
 		// ffmpeg.js resolves its worker relative to its own URL, which does not work from a blob.
-		const scriptSource = await (await loadAsset(base, localPath, FFMPEG_SCRIPT_FILE, "text/javascript", readLocalAsset, downloadRemoteAsset)).text();
+		const scriptSource = await (await loadAsset(base, localPath, FFMPEG_SCRIPT_FILE, "text/javascript", readLocalAsset)).text();
 		const patchedScriptSource = scriptSource.replace(
 			"new URL(e.p+e.u(814),e.b)",
 			JSON.stringify(workerUrl)
@@ -177,8 +167,8 @@ export function loadFfmpeg(
 			w.define = savedDefine;
 		}
 
-		const coreUrl = await toBlobUrl(base, localPath, FFMPEG_CORE_FILE, "text/javascript", readLocalAsset, downloadRemoteAsset);
-		const wasmUrl = await toBlobUrl(base, localPath, FFMPEG_WASM_FILE, "application/wasm", readLocalAsset, downloadRemoteAsset);
+		const coreUrl = await toBlobUrl(base, localPath, FFMPEG_CORE_FILE, "text/javascript", readLocalAsset);
+		const wasmUrl = await toBlobUrl(base, localPath, FFMPEG_WASM_FILE, "application/wasm", readLocalAsset);
 
 		const FFmpegCtor = window.FFmpegWASM?.FFmpeg;
 		if (!FFmpegCtor) throw new Error("FFmpegWASM did not register after loading ffmpeg.js");

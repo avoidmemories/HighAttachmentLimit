@@ -24,6 +24,7 @@ export interface ClipSettings {
 	zipClips: boolean;
 	clipTimestamp: number;
 	ffmpegBaseUrl: string;
+	ffmpegLocalPath: string;
 }
 
 export interface ClipMetadata {
@@ -80,6 +81,7 @@ const FFMPEG_CORE_FILE = "ffmpeg-core.js";
 const FFMPEG_WASM_FILE = "ffmpeg-core.wasm";
 
 let ffmpegPromise: Promise<FFmpegInstance> | undefined;
+type LocalAssetReader = (filename: string) => Promise<Uint8Array | null>;
 
 async function fetchOk(url: string): Promise<Response> {
 	const res = await fetch(url);
@@ -87,9 +89,30 @@ async function fetchOk(url: string): Promise<Response> {
 	return res;
 }
 
-async function toBlobUrl(url: string, type: string): Promise<string> {
-	const bytes = await (await fetchOk(url)).arrayBuffer();
-	return URL.createObjectURL(new Blob([bytes], { type }));
+async function loadAsset(
+	baseUrl: string,
+	localPath: string,
+	filename: string,
+	type: string,
+	readLocalAsset?: LocalAssetReader
+): Promise<Blob> {
+	// Match YABDP4Nitro's behavior: use a local file first and download it only when unavailable.
+	if (localPath && readLocalAsset) {
+		const localFile = await readLocalAsset(filename);
+		if (localFile) return new Blob([localFile], { type });
+	}
+
+	return new Blob([await (await fetchOk(baseUrl + filename)).arrayBuffer()], { type });
+}
+
+async function toBlobUrl(
+	baseUrl: string,
+	localPath: string,
+	filename: string,
+	type: string,
+	readLocalAsset?: LocalAssetReader
+): Promise<string> {
+	return URL.createObjectURL(await loadAsset(baseUrl, localPath, filename, type, readLocalAsset));
 }
 
 function injectScript(src: string): Promise<void> {
@@ -103,17 +126,22 @@ function injectScript(src: string): Promise<void> {
 	});
 }
 
-export function loadFfmpeg(baseUrl: string): Promise<FFmpegInstance> {
+export function loadFfmpeg(
+	baseUrl: string,
+	localPath: string,
+	readLocalAsset?: LocalAssetReader
+): Promise<FFmpegInstance> {
 	ffmpegPromise ??= (async () => {
 		const base = baseUrl.endsWith("/") ? baseUrl : baseUrl + "/";
 
-		const workerUrl = await toBlobUrl(base + FFMPEG_WORKER_FILE, "text/javascript");
+		const workerUrl = await toBlobUrl(base, localPath, FFMPEG_WORKER_FILE, "text/javascript", readLocalAsset);
 		// ffmpeg.js resolves its worker relative to its own URL, which does not work from a blob.
-		const scriptSource = (await (await fetchOk(base + FFMPEG_SCRIPT_FILE)).text()).replace(
+		const scriptSource = await (await loadAsset(base, localPath, FFMPEG_SCRIPT_FILE, "text/javascript", readLocalAsset)).text();
+		const patchedScriptSource = scriptSource.replace(
 			"new URL(e.p+e.u(814),e.b)",
 			JSON.stringify(workerUrl)
 		);
-		const scriptUrl = URL.createObjectURL(new Blob([scriptSource], { type: "text/javascript" }));
+		const scriptUrl = URL.createObjectURL(new Blob([patchedScriptSource], { type: "text/javascript" }));
 
 		// ffmpeg.js picks AMD over globals when `define` exists, so hide it while it loads.
 		const w = window as Window & { define?: unknown };
@@ -125,8 +153,8 @@ export function loadFfmpeg(baseUrl: string): Promise<FFmpegInstance> {
 			w.define = savedDefine;
 		}
 
-		const coreUrl = await toBlobUrl(base + FFMPEG_CORE_FILE, "text/javascript");
-		const wasmUrl = await toBlobUrl(base + FFMPEG_WASM_FILE, "application/wasm");
+		const coreUrl = await toBlobUrl(base, localPath, FFMPEG_CORE_FILE, "text/javascript", readLocalAsset);
+		const wasmUrl = await toBlobUrl(base, localPath, FFMPEG_WASM_FILE, "application/wasm", readLocalAsset);
 
 		const FFmpegCtor = window.FFmpegWASM?.FFmpeg;
 		if (!FFmpegCtor) throw new Error("FFmpegWASM did not register after loading ffmpeg.js");

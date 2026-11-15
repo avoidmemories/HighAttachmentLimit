@@ -1,5 +1,5 @@
 import { definePluginSettings } from "@api/Settings";
-import definePlugin, { OptionType } from "@utils/types";
+import definePlugin, { OptionType, PluginNative } from "@utils/types";
 import { findByCode, findByProps } from "@webpack";
 import { addContextMenuPatch, removeContextMenuPatch } from "@api/ContextMenu";
 import { FluxDispatcher, Menu, React, SelectedChannelStore, UserStore, showToast } from "@webpack/common";
@@ -37,7 +37,14 @@ const settings = definePluginSettings({
 		description: "Folder containing ffmpeg.js, 814.ffmpeg.js, ffmpeg-core.js and ffmpeg-core.wasm",
 		default: "https://raw.githubusercontent.com/avoidmemories/HighAttachmentLimit/main/ffmpeg/",
 	},
+	ffmpegLocalPath: {
+		type: OptionType.STRING,
+		description: "Optional local ffmpeg folder. Its files are used before the FFmpeg base URL.",
+		default: "",
+	},
 });
+
+const Native = VencordNative.pluginHelpers.HighAttachmentLimit as PluginNative<typeof import("./native")>;
 
 interface UploadItem {
 	file: File;
@@ -111,7 +118,14 @@ async function prepareUploadItems(items: UploadItem[], signal: AbortSignal, prog
 		}
 		try {
 			const prepared = await prepareClip(item.file, clipSettings, userId, {
-				getFfmpeg: () => untilAborted(loadFfmpeg(clipSettings.ffmpegBaseUrl), signal),
+				getFfmpeg: () => untilAborted(
+					loadFfmpeg(
+						clipSettings.ffmpegBaseUrl,
+						clipSettings.ffmpegLocalPath,
+						filename => Native.readFfmpegFile(clipSettings.ffmpegLocalPath, filename)
+					),
+					signal
+				),
 				signal,
 				onProgress: (ratio) => progress?.setRatio(ratio),
 			});

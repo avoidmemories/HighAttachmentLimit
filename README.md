@@ -24,6 +24,23 @@ https://raw.githubusercontent.com/avoidmemories/HighAttachmentLimit/main/ffmpeg/
 
 The default can be changed in the plugin settings (`FFmpeg base URL`) if you maintain a mirror. Keep all four required runtime files together: `ffmpeg.js`, `814.ffmpeg.js`, `ffmpeg-core.js`, and `ffmpeg-core.wasm`.
 
+### Loading FFmpeg from disk
+
+HighAttachmentLimit follows the same **local first, remote fallback** approach as YABDP4Nitro:
+
+1. If **FFmpeg local path** is set, the plugin attempts to read the four runtime files from that folder.
+2. A file that is not present or cannot be read is downloaded from **FFmpeg base URL** instead.
+
+When this repository is installed as described below, enter this path in the plugin settings:
+
+```text
+<your Vencord folder>\src\userplugins\HighAttachmentLimit\ffmpeg
+```
+
+For example: `C:\Users\you\Documents\Vencord\src\userplugins\HighAttachmentLimit\ffmpeg`.
+
+Vencord compiles user plugins into its build, so it does not expose a BetterDiscord-style `Plugins.folder` path at runtime. The local-path setting is therefore required once; after setting it, FFmpeg is read from the `ffmpeg/` directory beside this plugin's source instead of downloaded from GitHub.
+
 ## Installation
 
 HighAttachmentLimit is a Vencord **user plugin**, so it requires a Vencord build from source.

@@ -58,6 +58,51 @@ function Test-VencordSource([string]$Path) {
     return (Test-Path (Join-Path $Path "src\plugins")) -and (Test-Path (Join-Path $Path "package.json"))
 }
 
+function Get-DiscordPatcherLinks {
+    $links = @()
+    $discordNames = @("Discord", "DiscordPTB", "DiscordCanary", "DiscordDevelopment")
+    foreach ($discordName in $discordNames) {
+        $discordRoot = Join-Path $env:LOCALAPPDATA $discordName
+        if (-not (Test-Path -LiteralPath $discordRoot)) { continue }
+
+        foreach ($appDirectory in Get-ChildItem -LiteralPath $discordRoot -Directory -Filter "app-*") {
+            $appAsar = Join-Path $appDirectory.FullName "resources\app.asar"
+            if (-not (Test-Path -LiteralPath $appAsar)) { continue }
+
+            # app.asar is a small JavaScript loader after Vencord has patched Discord.
+            $appAsarText = [System.Text.Encoding]::UTF8.GetString([System.IO.File]::ReadAllBytes($appAsar))
+            $match = [regex]::Match($appAsarText, 'require\("([^"]*patcher\.js)"\)')
+            if (-not $match.Success) { continue }
+
+            $patcherPath = $match.Groups[1].Value.Replace("\\", "\").Replace("/", "\")
+            $links += [PSCustomObject]@{
+                Discord = $discordName
+                AppAsar = $appAsar
+                Patcher = [System.IO.Path]::GetFullPath($patcherPath)
+            }
+        }
+    }
+    return $links
+}
+
+function Assert-DiscordUsesSourceBuild([string]$SourceDirectory) {
+    $expectedPatcher = [System.IO.Path]::GetFullPath((Join-Path $SourceDirectory "dist\patcher.js"))
+    $links = @(Get-DiscordPatcherLinks)
+    $activeLink = $links | Where-Object { $_.Patcher -ieq $expectedPatcher } | Select-Object -First 1
+    if ($activeLink) {
+        Write-Host "Discord is linked to this Vencord source build: $($activeLink.Discord)" -ForegroundColor Green
+        return
+    }
+
+    $foundLinks = if ($links.Count) {
+        ($links | ForEach-Object { "$($_.Discord): $($_.Patcher)" }) -join "`n"
+    } else {
+        "No patched Discord installation was found under $env:LOCALAPPDATA."
+    }
+
+    throw "Vencord was built, but Discord was not linked to this source folder. Expected: $expectedPatcher`nFound:`n$foundLinks`nRun the installer again, and when Vencord asks which Discord installation to patch, choose the installation you actually launch."
+}
+
 function Set-LocalFfmpegPath([string]$Path) {
     $settingsPath = Join-Path $env:APPDATA "Vencord\settings\settings.json"
     if (-not (Test-Path $settingsPath)) {
@@ -101,7 +146,7 @@ if (Get-Process -Name Discord -ErrorAction SilentlyContinue) {
     throw "Installation stopped before changing files or settings."
 }
 
-$totalSteps = if ($IncludeLocalFfmpeg) { 10 } else { 7 }
+$totalSteps = if ($IncludeLocalFfmpeg) { 11 } else { 8 }
 $PluginDir = Join-Path $VencordDir "src\userplugins\$PluginName"
 $FfmpegDir = Join-Path $PluginDir "ffmpeg"
 New-Item -ItemType Directory -Force $PluginDir | Out-Null
@@ -155,6 +200,9 @@ try {
     $step++
     Write-Stage $step $totalSteps "Applying the Vencord build to Discord"
     pnpm inject
+    $step++
+    Write-Stage $step $totalSteps "Verifying that Discord uses this Vencord build"
+    Assert-DiscordUsesSourceBuild $VencordDir
 } finally {
     Pop-Location
     Write-Progress -Id 1 -Activity "HighAttachmentLimit installer" -Completed

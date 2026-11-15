@@ -49,8 +49,9 @@ foreach ($name in $PluginFiles) {
 
 if ($IncludeLocalFfmpeg) {
     $FfmpegDir = Join-Path $PluginDir "ffmpeg"
-    $FfmpegDownloadDir = "$FfmpegDir.download"
-    if (Test-Path $FfmpegDownloadDir) { Remove-Item -LiteralPath $FfmpegDownloadDir -Recurse -Force }
+    # A unique staging name also lets a retry proceed if Windows is still releasing
+    # a failed download from an earlier installer run.
+    $FfmpegDownloadDir = "$FfmpegDir.download-$PID"
     New-Item -ItemType Directory -Force $FfmpegDownloadDir | Out-Null
     foreach ($name in $FfmpegFiles) {
         $destination = Join-Path $FfmpegDownloadDir $name

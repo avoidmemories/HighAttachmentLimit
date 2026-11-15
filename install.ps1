@@ -4,6 +4,9 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+# PowerShell 5 renders an extremely slow progress bar for every web request.
+# Suppressing it is especially important for the 32 MB WebAssembly file.
+$ProgressPreference = "SilentlyContinue"
 $SourceBaseUrl = "https://raw.githubusercontent.com/avoidmemories/HighAttachmentLimit/main"
 $PluginName = "HighAttachmentLimit"
 $PluginFiles = @("index.ts", "clip.ts", "progress.ts", "native.ts")
@@ -50,7 +53,8 @@ if ($IncludeLocalFfmpeg) {
     if (Test-Path $FfmpegDownloadDir) { Remove-Item -LiteralPath $FfmpegDownloadDir -Recurse -Force }
     New-Item -ItemType Directory -Force $FfmpegDownloadDir | Out-Null
     foreach ($name in $FfmpegFiles) {
-        Invoke-WebRequest -UseBasicParsing -Uri "$SourceBaseUrl/ffmpeg/$name" -OutFile (Join-Path $FfmpegDownloadDir $name)
+        $destination = Join-Path $FfmpegDownloadDir $name
+        Invoke-WebRequest -UseBasicParsing -Uri "$SourceBaseUrl/ffmpeg/$name" -OutFile $destination -TimeoutSec 180
     }
     foreach ($name in $FfmpegFiles) {
         $file = Get-Item -LiteralPath (Join-Path $FfmpegDownloadDir $name) -ErrorAction SilentlyContinue

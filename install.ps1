@@ -116,22 +116,33 @@ function Write-VencordLoader([string]$AppAsar, [string]$PatcherPath) {
     $alignedHeaderSize = [int]([math]::Ceiling($headerSize / 4.0) * 4)
     $paddedHeader = $header + ('0' * ($alignedHeaderSize - $headerSize))
 
-    $stream = $null
-    $writer = $null
-    try {
-        $stream = [System.IO.File]::Open($AppAsar, [System.IO.FileMode]::Create, [System.IO.FileAccess]::Write, [System.IO.FileShare]::None)
-        $writer = New-Object System.IO.BinaryWriter($stream, $encoding)
-        $writer.Write([int]4)
-        $writer.Write([int]($alignedHeaderSize + 8))
-        $writer.Write([int]($alignedHeaderSize + 4))
-        $writer.Write([int]$headerSize)
-        $writer.Write($encoding.GetBytes($paddedHeader))
-        $writer.Write($encoding.GetBytes($indexJs))
-        $writer.Write($encoding.GetBytes($packageJson))
-    } finally {
-        if ($writer) { $writer.Dispose() }
-        elseif ($stream) { $stream.Dispose() }
+    $lastError = $null
+    for ($attempt = 1; $attempt -le 30; $attempt++) {
+        $stream = $null
+        $writer = $null
+        try {
+            $stream = [System.IO.File]::Open($AppAsar, [System.IO.FileMode]::Create, [System.IO.FileAccess]::Write, [System.IO.FileShare]::None)
+            $writer = New-Object System.IO.BinaryWriter($stream, $encoding)
+            $writer.Write([int]4)
+            $writer.Write([int]($alignedHeaderSize + 8))
+            $writer.Write([int]($alignedHeaderSize + 4))
+            $writer.Write([int]$headerSize)
+            $writer.Write($encoding.GetBytes($paddedHeader))
+            $writer.Write($encoding.GetBytes($indexJs))
+            $writer.Write($encoding.GetBytes($packageJson))
+            return
+        } catch [System.IO.IOException] {
+            $lastError = $_
+            if ($attempt -lt 30) {
+                Write-Host "Discord is still releasing app.asar; retrying in one second ($attempt/30)..." -ForegroundColor Yellow
+                Start-Sleep -Seconds 1
+            }
+        } finally {
+            if ($writer) { $writer.Dispose() }
+            elseif ($stream) { $stream.Dispose() }
+        }
     }
+    throw "Discord's app.asar remained locked for 30 seconds. End every Discord and Discord updater process in Task Manager, then run the installer again. Last error: $lastError"
 }
 
 function Repair-DiscordSourceBuildLink([string]$SourceDirectory) {

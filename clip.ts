@@ -79,14 +79,28 @@ const FFMPEG_WORKER_FILE = "814.ffmpeg.js";
 const FFMPEG_SCRIPT_FILE = "ffmpeg.js";
 const FFMPEG_CORE_FILE = "ffmpeg-core.js";
 const FFMPEG_WASM_FILE = "ffmpeg-core.wasm";
+const FFMPEG_FETCH_TIMEOUT_MS = 60_000;
 
 let ffmpegPromise: Promise<FFmpegInstance> | undefined;
 type LocalAssetReader = (filename: string) => Promise<Uint8Array | null>;
 
-async function fetchOk(url: string): Promise<Response> {
-	const res = await fetch(url);
-	if (!res.ok) throw new Error(`Failed to fetch ${url}: ${res.status}`);
-	return res;
+async function fetchAsset(url: string): Promise<ArrayBuffer> {
+	// Chromium's fetch has no useful default deadline. Without one, a stalled
+	// raw.githubusercontent.com request leaves Discord's upload UI waiting forever.
+	const controller = new AbortController();
+	const timeout = setTimeout(() => controller.abort(), FFMPEG_FETCH_TIMEOUT_MS);
+	try {
+		const res = await fetch(url, { signal: controller.signal });
+		if (!res.ok) throw new Error(`Failed to fetch ${url}: ${res.status}`);
+		return await res.arrayBuffer();
+	} catch (err) {
+		if (controller.signal.aborted) {
+			throw new Error(`Timed out after ${FFMPEG_FETCH_TIMEOUT_MS / 1000} seconds while fetching ${url}`);
+		}
+		throw err;
+	} finally {
+		clearTimeout(timeout);
+	}
 }
 
 async function loadAsset(
@@ -102,7 +116,7 @@ async function loadAsset(
 		if (localFile) return new Blob([localFile], { type });
 	}
 
-	return new Blob([await (await fetchOk(baseUrl + filename)).arrayBuffer()], { type });
+	return new Blob([await fetchAsset(baseUrl + filename)], { type });
 }
 
 async function toBlobUrl(

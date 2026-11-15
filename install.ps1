@@ -32,8 +32,9 @@ $PluginDir = Join-Path $VencordDir "src\userplugins\$PluginName"
 New-Item -ItemType Directory -Force $PluginDir | Out-Null
 
 # A Vencord user plugin needs only its TypeScript files. Keep repository metadata and documentation out.
+# Do not remove ffmpeg here: a normal plugin update must preserve a previously
+# installed local runtime.
 $extras = @(".git", ".gitignore", "README.md", "LICENSE.md", "install.ps1")
-if (-not $IncludeLocalFfmpeg) { $extras += "ffmpeg" }
 foreach ($name in $extras) {
     $extraPath = Join-Path $PluginDir $name
     if (Test-Path $extraPath) { Remove-Item -LiteralPath $extraPath -Recurse -Force }
@@ -45,13 +46,18 @@ foreach ($name in $PluginFiles) {
 
 if ($IncludeLocalFfmpeg) {
     $FfmpegDir = Join-Path $PluginDir "ffmpeg"
-    New-Item -ItemType Directory -Force $FfmpegDir | Out-Null
+    $FfmpegDownloadDir = "$FfmpegDir.download"
+    if (Test-Path $FfmpegDownloadDir) { Remove-Item -LiteralPath $FfmpegDownloadDir -Recurse -Force }
+    New-Item -ItemType Directory -Force $FfmpegDownloadDir | Out-Null
     foreach ($name in $FfmpegFiles) {
-        Invoke-WebRequest -UseBasicParsing -Uri "$SourceBaseUrl/ffmpeg/$name" -OutFile (Join-Path $FfmpegDir $name)
+        Invoke-WebRequest -UseBasicParsing -Uri "$SourceBaseUrl/ffmpeg/$name" -OutFile (Join-Path $FfmpegDownloadDir $name)
     }
     foreach ($name in $FfmpegFiles) {
-        if (-not (Test-Path (Join-Path $FfmpegDir $name))) { throw "FFmpeg download failed: $name" }
+        $file = Get-Item -LiteralPath (Join-Path $FfmpegDownloadDir $name) -ErrorAction SilentlyContinue
+        if (-not $file -or $file.Length -eq 0) { throw "FFmpeg download failed: $name" }
     }
+    if (Test-Path $FfmpegDir) { Remove-Item -LiteralPath $FfmpegDir -Recurse -Force }
+    Move-Item -LiteralPath $FfmpegDownloadDir -Destination $FfmpegDir
 
     $settingsPath = Join-Path $env:APPDATA "Vencord\settings\settings.json"
     if (Test-Path $settingsPath) {
@@ -71,6 +77,7 @@ if ($IncludeLocalFfmpeg) {
         }
         [System.IO.File]::WriteAllText($settingsPath, $updatedSettings, [System.Text.UTF8Encoding]::new($false))
     }
+    Write-Host "Local FFmpeg installed and configured: $FfmpegDir"
 }
 
 Push-Location $VencordDir

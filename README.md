@@ -93,7 +93,7 @@ To use the bundled files from disk instead of downloading them from GitHub, set 
 <your Vencord folder>\src\userplugins\HighAttachmentLimit\ffmpeg
 ```
 
-The regular one-command installer intentionally does not copy this optional 32 MB folder. Use **One-command installation with local FFmpeg** above to download and configure it automatically.
+The regular one-command installer intentionally does not copy this optional 32 MB folder, but it preserves an already installed local runtime. Use **One-command installation with local FFmpeg** above to download, repair, and configure it automatically.
 
 ### Updating
 

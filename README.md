@@ -53,9 +53,9 @@ node --version
 pnpm --version
 ```
 
-### I already have a Vencord source build
+### Add to an existing Vencord source checkout
 
-Use this route if your Vencord folder already contains `src\userplugins` or you have previously run `pnpm build` there.
+Use this route when you already maintain a local Vencord checkout and have built it before.
 
 1. Open PowerShell in the root of your Vencord source folder.
 2. Create the user-plugin folder if necessary, then clone the plugin:
@@ -74,9 +74,9 @@ Use this route if your Vencord folder already contains `src\userplugins` or you 
 
 4. Fully close Discord (including the system-tray process), then open it again. Enable **HighAttachmentLimit** in **Settings → Plugins**.
 
-### I only have the regular Vencord installation
+### Set up a Vencord source checkout
 
-Use this route if you installed Vencord with its normal installer and do not have a Vencord source folder. You do not need to uninstall the existing installation; `pnpm inject` will apply your own build to Discord.
+Use this route to create a local Vencord checkout for HighAttachmentLimit. You do not need to uninstall an existing Vencord installation; `pnpm inject` will apply your own build to Discord.
 
 1. Clone Vencord and install its dependencies:
 

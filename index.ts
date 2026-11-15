@@ -125,7 +125,8 @@ async function prepareUploadItems(items: UploadItem[], signal: AbortSignal, prog
 					loadFfmpeg(
 						clipSettings.ffmpegBaseUrl,
 						clipSettings.ffmpegLocalPath,
-						filename => Native.readFfmpegFile(clipSettings.ffmpegLocalPath, filename)
+						filename => Native.readFfmpegFile(clipSettings.ffmpegLocalPath, filename),
+						url => Native.downloadFfmpegFile(url)
 					),
 					signal
 				),

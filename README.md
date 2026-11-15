@@ -26,7 +26,7 @@ The default can be changed in the plugin settings (`FFmpeg base URL`) if you mai
 
 ### Loading FFmpeg from disk
 
-HighAttachmentLimit follows the same **local first, remote fallback** approach as YABDP4Nitro:
+HighAttachmentLimit uses a **local first, remote fallback** loading order:
 
 1. If **FFmpeg local path** is set, the plugin attempts to read the four runtime files from that folder.
 2. A file that is not present or cannot be read is downloaded from **FFmpeg base URL** instead.
@@ -84,4 +84,4 @@ The clip-preparation approach and bundled FFmpeg layout were adapted from [YABDP
 
 ## License
 
-HighAttachmentLimit is licensed under the [Open Software License 3.0](LICENSE.md), matching the license used by YABDP4Nitro. The bundled FFmpeg files retain their own license in [`ffmpeg/LICENSE.txt`](ffmpeg/LICENSE.txt).
+HighAttachmentLimit is licensed under the [Open Software License 3.0](LICENSE.md). The bundled FFmpeg files retain their own license in [`ffmpeg/LICENSE.txt`](ffmpeg/LICENSE.txt).

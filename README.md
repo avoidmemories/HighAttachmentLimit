@@ -36,7 +36,7 @@ pnpm --version
 
 ### One-command installation or update
 
-For an existing Vencord source checkout, paste this into PowerShell:
+Fully close Discord, including its system-tray process. Then, for an existing Vencord source checkout, paste this into PowerShell:
 
 ```powershell
 irm https://raw.githubusercontent.com/avoidmemories/HighAttachmentLimit/main/install.ps1 | iex

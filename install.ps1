@@ -97,6 +97,11 @@ if (-not $VencordDir -or -not (Test-VencordSource $VencordDir)) {
 
 if (-not (Test-VencordSource $VencordDir)) { throw "The selected folder is not a Vencord source checkout: $VencordDir" }
 
+if (Get-Process -Name Discord -ErrorAction SilentlyContinue) {
+    Write-Host "Discord is currently running. Fully close it, including the tray icon, then run this command again." -ForegroundColor Yellow
+    throw "Installation stopped before changing files or settings."
+}
+
 $totalSteps = if ($IncludeLocalFfmpeg) { 10 } else { 7 }
 $PluginDir = Join-Path $VencordDir "src\userplugins\$PluginName"
 $FfmpegDir = Join-Path $PluginDir "ffmpeg"

@@ -57,7 +57,15 @@ pnpm --version
 
 Use this route when you already maintain a local Vencord checkout and have built it before.
 
-1. Open PowerShell in the root of your Vencord source folder.
+1. Set `$VencordDir` to the full path of your **Vencord source folder**, then enter it. For example, if Vencord is in `Documents\Vencord`:
+
+   ```powershell
+   $VencordDir = "$HOME\Documents\Vencord"
+   Set-Location $VencordDir
+   if (-not (Test-Path ".\src\plugins")) { throw 'This is not a Vencord source folder. Set $VencordDir to the folder created by git clone Vendicated/Vencord.' }
+   ```
+
+   Do not run the next commands from your user profile folder (for example, `C:\Users\you`), or the plugin will be cloned there instead of into Vencord.
 2. Create the user-plugin folder if necessary, then clone the plugin:
 
    ```powershell
@@ -81,9 +89,10 @@ Use this route to create a local Vencord checkout for HighAttachmentLimit. You d
 1. Clone Vencord and install its dependencies:
 
    ```powershell
-   cd $HOME\Documents
+   $VencordDir = "$HOME\Documents\Vencord"
+   Set-Location (Split-Path $VencordDir -Parent)
    git clone https://github.com/Vendicated/Vencord.git
-   cd Vencord
+   Set-Location $VencordDir
    pnpm install --frozen-lockfile
    ```
 
@@ -114,9 +123,11 @@ To use the bundled files from disk instead of downloading them from GitHub, set 
 
 ### Updating
 
-From the Vencord source folder, run:
+First set `$VencordDir` to your Vencord source folder and enter it, then run:
 
 ```powershell
+$VencordDir = "$HOME\Documents\Vencord"
+Set-Location $VencordDir
 git -C .\src\userplugins\HighAttachmentLimit pull
 pnpm build
 pnpm inject

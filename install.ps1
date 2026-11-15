@@ -121,7 +121,9 @@ function Write-VencordLoader([string]$AppAsar, [string]$PatcherPath) {
         $stream = $null
         $writer = $null
         try {
-            $stream = [System.IO.File]::Open($AppAsar, [System.IO.FileMode]::Create, [System.IO.FileAccess]::Write, [System.IO.FileShare]::None)
+            # Antivirus/indexing software may be reading this tiny loader. Match
+            # the official installer by allowing that harmless shared access.
+            $stream = [System.IO.File]::Open($AppAsar, [System.IO.FileMode]::Create, [System.IO.FileAccess]::Write, [System.IO.FileShare]::ReadWrite)
             $writer = New-Object System.IO.BinaryWriter($stream, $encoding)
             $writer.Write([int]4)
             $writer.Write([int]($alignedHeaderSize + 8))

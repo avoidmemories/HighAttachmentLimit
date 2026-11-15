@@ -103,6 +103,53 @@ function Assert-DiscordUsesSourceBuild([string]$SourceDirectory) {
     throw "Vencord was built, but Discord was not linked to this source folder. Expected: $expectedPatcher`nFound:`n$foundLinks`nRun the installer again, and when Vencord asks which Discord installation to patch, choose the installation you actually launch."
 }
 
+function Write-VencordLoader([string]$AppAsar, [string]$PatcherPath) {
+    # app.asar is an ASAR archive, not a plain text file. Rebuild the small
+    # Vencord loader instead of doing a length-changing text replacement.
+    $packageJson = "{`n  `"name`": `"discord`",`n  `"main`": `"index.js`"`n}"
+    $indexJs = "require(" + ($PatcherPath | ConvertTo-Json -Compress) + ")"
+    $encoding = [System.Text.Encoding]::UTF8
+    $indexSize = $encoding.GetByteCount($indexJs)
+    $packageSize = $encoding.GetByteCount($packageJson)
+    $header = '{"files":{"index.js":{"size":' + $indexSize + ',"offset":"0"},"package.json":{"size":' + $packageSize + ',"offset":"' + $indexSize + '"}}}'
+    $headerSize = $encoding.GetByteCount($header)
+    $alignedHeaderSize = [int]([math]::Ceiling($headerSize / 4.0) * 4)
+    $paddedHeader = $header + ('0' * ($alignedHeaderSize - $headerSize))
+
+    $stream = $null
+    $writer = $null
+    try {
+        $stream = [System.IO.File]::Open($AppAsar, [System.IO.FileMode]::Create, [System.IO.FileAccess]::Write, [System.IO.FileShare]::None)
+        $writer = New-Object System.IO.BinaryWriter($stream, $encoding)
+        $writer.Write([int]4)
+        $writer.Write([int]($alignedHeaderSize + 8))
+        $writer.Write([int]($alignedHeaderSize + 4))
+        $writer.Write([int]$headerSize)
+        $writer.Write($encoding.GetBytes($paddedHeader))
+        $writer.Write($encoding.GetBytes($indexJs))
+        $writer.Write($encoding.GetBytes($packageJson))
+    } finally {
+        if ($writer) { $writer.Dispose() }
+        elseif ($stream) { $stream.Dispose() }
+    }
+}
+
+function Repair-DiscordSourceBuildLink([string]$SourceDirectory) {
+    $links = @(Get-DiscordPatcherLinks)
+    if ($links.Count -ne 1) { return $false }
+
+    $appAsar = $links[0].AppAsar
+    $originalAppAsar = Join-Path (Split-Path $appAsar -Parent) "_app.asar"
+    if (-not (Test-Path -LiteralPath $originalAppAsar)) {
+        throw "Discord is not in a safe already-patched state, so its loader was not changed automatically: $appAsar"
+    }
+
+    $sourcePatcher = [System.IO.Path]::GetFullPath((Join-Path $SourceDirectory "dist\patcher.js"))
+    Write-Host "Repairing the Discord loader so it uses this Vencord source build..." -ForegroundColor Yellow
+    Write-VencordLoader $appAsar $sourcePatcher
+    return $true
+}
+
 function Set-LocalFfmpegPath([string]$Path) {
     $settingsPath = Join-Path $env:APPDATA "Vencord\settings\settings.json"
     if (-not (Test-Path $settingsPath)) {
@@ -202,7 +249,12 @@ try {
     pnpm inject
     $step++
     Write-Stage $step $totalSteps "Verifying that Discord uses this Vencord build"
-    Assert-DiscordUsesSourceBuild $VencordDir
+    try {
+        Assert-DiscordUsesSourceBuild $VencordDir
+    } catch {
+        if (-not (Repair-DiscordSourceBuildLink $VencordDir)) { throw }
+        Assert-DiscordUsesSourceBuild $VencordDir
+    }
 } finally {
     Pop-Location
     Write-Progress -Id 1 -Activity "HighAttachmentLimit installer" -Completed

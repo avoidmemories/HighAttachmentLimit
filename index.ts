@@ -7,6 +7,9 @@ import { FluxDispatcher, Menu, React, SelectedChannelStore, UserStore, showToast
 import { FREE_FILE_LIMIT, cancelFfmpeg, loadFfmpeg, prepareClip, untilAborted } from "./clip";
 import { type ClipProgress, showClipProgress } from "./progress";
 
+const LEGACY_FFMPEG_BASE_URL = "https://raw.githubusercontent.com/riolubruh/YABDP4Nitro/main/ffmpeg/";
+const DEFAULT_FFMPEG_BASE_URL = "https://raw.githubusercontent.com/avoidmemories/HighAttachmentLimit/main/ffmpeg/";
+
 const settings = definePluginSettings({
 	videoClips: {
 		type: OptionType.BOOLEAN,
@@ -35,7 +38,7 @@ const settings = definePluginSettings({
 	ffmpegBaseUrl: {
 		type: OptionType.STRING,
 		description: "Folder containing ffmpeg.js, 814.ffmpeg.js, ffmpeg-core.js and ffmpeg-core.wasm",
-		default: "https://raw.githubusercontent.com/avoidmemories/HighAttachmentLimit/main/ffmpeg/",
+		default: DEFAULT_FFMPEG_BASE_URL,
 	},
 	ffmpegLocalPath: {
 		type: OptionType.STRING,
@@ -43,6 +46,11 @@ const settings = definePluginSettings({
 		default: "",
 	},
 });
+
+// Defaults are only used for new settings. Migrate the old upstream URL without overwriting custom mirrors.
+if (settings.store.ffmpegBaseUrl === LEGACY_FFMPEG_BASE_URL) {
+	settings.store.ffmpegBaseUrl = DEFAULT_FFMPEG_BASE_URL;
+}
 
 const Native = VencordNative.pluginHelpers.HighAttachmentLimit as PluginNative<typeof import("./native")>;
 
